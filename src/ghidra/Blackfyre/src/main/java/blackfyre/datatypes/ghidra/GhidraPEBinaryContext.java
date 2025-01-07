@@ -42,10 +42,15 @@ public class GhidraPEBinaryContext extends GhidraBinaryContext {
         
     protected void  initializeHeader() throws Exception
     {
-    	
     	File exePath = new File(theCurrentProgram.getExecutablePath());
         String path = exePath.getAbsolutePath();
-        FSRL fsrl = FSRL.fromString("file:/" + path);
+
+        // Windows default, if starts with a / then it is a linux system
+        String prefix = "file://";
+        if (path.startsWith("/")) {
+            prefix = "file:/";
+        }
+        FSRL fsrl = FSRL.fromString(prefix + path);
 
         FileByteProvider provider = new FileByteProvider(exePath, fsrl, java.nio.file.AccessMode.READ);
         

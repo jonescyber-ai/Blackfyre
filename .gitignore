@@ -1,0 +1,6 @@
+﻿.idea/**
+src/ghidra/Blackfyre/build/**
+src/ghidra/Blackfyre/dist
+src/ghidra/Blackfyre/lib
+src/ghidra/Blackfyre/.gradle/**
+src/ghidra/Blackfyre/.idea
