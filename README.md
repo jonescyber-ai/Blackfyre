@@ -10,6 +10,7 @@ Blackfyre was originally developed to support the course **"Automating Reverse E
 
 ---
 
+
 ### **What is Blackfyre?**
 
 Blackfyre consists of two core components:
@@ -68,6 +69,17 @@ This architecture coverage ensures Blackfyre can be applied to a wide range of b
 | **Basic Blocks** | Instruction mnemonics and opcodes.                                         |
 | **Binary Metadata** | Architecture, file type, endianness, and disassembler details.           |
 | **Raw Binary**   | (Optional) The raw binary data for additional analysis.                    |
+
+---
+### ⚙️ Compatibility and Version Notes
+
+The **latest `main` branch** of this repository contains code that was **built from the Blackfyre source** and **tested on Ghidra 11.4**.
+
+> **Important:**  
+> - Ghidra **11.4 introduces breaking API changes** that make this plugin **incompatible with older Ghidra versions**, such as **11.2**.  
+> - The plugin’s Java and Ghidra integration code (including the `blackfyre` components) was **generated using Protocol Buffers v3.21.8**, which matches the **protobuf version bundled with Ghidra 11.4.2**.  
+> - Attempting to build or load this plugin on earlier Ghidra releases will result in **API resolution errors or runtime incompatibilities**.  
+> - For consistent results, use **Ghidra 11.4 or 11.4.2** when building or deploying this plugin.
 
 ---
 
@@ -354,7 +366,7 @@ These scripts demonstrate how to configure and execute Ghidra's headless mode fo
 
 ### Building the Ghidra Plugin
 
-The Ghidra plugin for **Blackfyre v1.0.0** relies on the `protobuf-java` dependency, which is already specified in the `build.gradle` file. This guide explains how to build the plugin using either Gradle or Eclipse GhidraDev.
+The Ghidra plugin for **Blackfyre v1.0.1** relies on the `protobuf-java` dependency, which is already specified in the `build.gradle` file. This guide explains how to build the plugin using either Gradle or Eclipse GhidraDev.
 
 
 #### Prerequisites
@@ -406,10 +418,10 @@ If you require debugging capabilities or a development environment, use Eclipse 
 #### Notes
 
 - **Gradle Dependency Management**:  
-  The required dependency (`protobuf-java v3.25.1`) is already configured in the `build.gradle` file.
+  The required dependency (`protobuf-java v3.21.8`) is already configured in the `build.gradle` file.
 
 - **Gradle Version Compatibility**:  
-  - Use **Gradle 8.5** for **Ghidra 11.2.1**.  
+  - Use **Gradle 8.5** for **Ghidra 11.4.2**.  
   - If using a different version of Ghidra, confirm the required Gradle version in the [Ghidra release notes](https://github.com/NationalSecurityAgency/ghidra/releases).
 
 - **Debugging with GhidraDev**:  
