@@ -30,6 +30,7 @@ import ghidra.program.model.data.WordDataType;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionManager;
 import ghidra.program.model.listing.Instruction;
+import ghidra.program.model.listing.Listing;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.symbol.Reference;
@@ -356,10 +357,13 @@ public class GhidraBinaryContext extends BinaryContext{
 
     protected HashMap<Long,String> getStringRefsFromGhidra()
     {
+    	
         HashMap<Long,String> stringRefs = new HashMap<Long,String>();
+        
+        Listing listing = theCurrentProgram.getListing();
 
         // Iterate through the program to get string refs
-        var definedDataInterator  =  DefinedDataIterator.definedStrings(theCurrentProgram);
+        var definedDataInterator  =  listing.getDefinedData(true);
         for( var definedData: definedDataInterator)
         {
             if(definedData.hasStringValue())
