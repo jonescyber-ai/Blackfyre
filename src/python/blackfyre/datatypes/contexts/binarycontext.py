@@ -479,6 +479,10 @@ class BinaryContext(object):
         return self._import_symbols
 
     @property
+    def import_symbol_dict(self):
+        return self._import_symbol_dict
+
+    @property
     def export_symbols(self):
         return self._export_symbols
 
