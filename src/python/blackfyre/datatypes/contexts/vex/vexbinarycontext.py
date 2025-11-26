@@ -79,36 +79,42 @@ class VexBinaryContext(BinaryContext):
         logger.debug("Unrecognized tail-call target: 0x%x", target)
         return None
 
-    def branch_targets_from_vex_bb_context(self,vex_bb_context: VexBasicBlockContext) -> List[int]:
+    def branch_targets_from_vex_bb_context(
+            self,
+            vex_bb_context: VexBasicBlockContext
+    ) -> List[int]:
         """
-        Return all branch targets that lie within the same function as the given VEX basic block.
+        Return all branch-like targets that lie within the same function as the given VEX basic block.
 
-        The process consists of two steps:
+        This includes:
+          - “normal” control-flow branches (IRCategory.branch)
+          - the fall-through address after a call (Ijk_Call), i.e., next instruction
 
-        1. **Determine containing function**
+        Process
+        -------
+        1. Determine containing function:
            The basic block address is checked against all function contexts.
            If multiple functions overlap, the most specific one is selected—
-           defined as the function with the highest ``start_addr`` that still
+           defined as the function with the highest ``start_address`` that still
            contains the block.
 
-        2. **Collect valid branch targets**
-           Each instruction marked as ``IRCategory.branch`` is examined, and its
-           ``jump_target_addr()`` is included if it is an integer within that
-           function’s [start_addr, end_addr) range. Duplicate targets are removed
-           while preserving order.
+        2. Collect valid targets:
+           For each instruction in the basic block:
+             * If its category is IRCategory.branch, use ``instr_ctx.jump_target_addr``.
+             * If its jumpkind is ``Ijk_Call``, compute the fall-through address
+               as ``native_address + native_instruction_size``.
+           In both cases, the target is kept only if it is an integer within the
+           function’s [start_address, end_address) range and not a duplicate.
 
         Returns
         -------
         List[int]
-            Branch targets that remain within the same function as the basic block.
+            Branch/fall-through targets that remain within the same function as the basic block.
         """
 
         bb_addr = vex_bb_context.start_address
 
         # Find the function containing this basic block (prefer most specific if overlapping).
-        # Note: Multiple function contexts may overlap (due to nested functions, partial recovery, or analysis artifacts).
-        # In that case, prefer the  *most specific* function range, meaning the one with the highest  start address
-        # that still contains the block. This selects the smallest  enclosing function rather than a large outer one.
         current_func_ctx = None
         for func_ctx in self.function_contexts:
             if func_ctx.start_address <= bb_addr < func_ctx.end_address:
@@ -129,19 +135,28 @@ class VexBinaryContext(BinaryContext):
         )
 
         targets: List[int] = []
-        seen = set()
+        seen: set[int] = set()
 
         for instr_ctx in vex_bb_context.vex_instruction_contexts:
-            if instr_ctx.category is not IRCategory.branch:
-                continue
+            target = None
 
-            target = instr_ctx.jump_target_addr
+            # Case 1: normal branch (your original logic)
+            if instr_ctx.category is IRCategory.branch:
+                target = instr_ctx.jump_target_addr
+
+            # Case 2: call – add fall-through address as a branch target
+            # (next instruction after the call)
+            elif getattr(instr_ctx, "jumpkind", None) == "Ijk_Call":
+                curr_address = instr_ctx.native_address
+                native_instruction_size = instr_ctx.native_instruction_size
+                target = curr_address + native_instruction_size
+
             if (
                     isinstance(target, int)
                     and target not in seen
                     and func_start <= target < func_end
             ):
-                logger.debug("Intra-function branch target: 0x%x", target)
+                logger.debug("Intra-function branch/fall-through target: 0x%x", target)
                 seen.add(target)
                 targets.append(target)
 
