@@ -146,7 +146,7 @@ class VexBinaryContext(BinaryContext):
 
             # Case 2: call – add fall-through address as a branch target
             # (next instruction after the call)
-            elif getattr(instr_ctx, "jumpkind", None) == "Ijk_Call":
+            elif instr_ctx.category is IRCategory.call:
                 curr_address = instr_ctx.native_address
                 native_instruction_size = instr_ctx.native_instruction_size
                 target = curr_address + native_instruction_size
