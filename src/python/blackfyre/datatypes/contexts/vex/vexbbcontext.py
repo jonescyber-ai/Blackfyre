@@ -54,7 +54,7 @@ class VexBasicBlockContext(BasicBlockContext):
     @staticmethod
     def _get_instruction_size_from_IMark(imark_string):
 
-        p = re.compile('.*IMark\(0x([0-9a-f]*),.*(\d)+,')
+        p = re.compile(r'.*IMark\(0x([0-9a-f]*),.*(\d)+,')
         m = p.match(imark_string)
 
         assert m is not None, "Failed to parse Imark string {}".format(imark_string)
@@ -66,7 +66,7 @@ class VexBasicBlockContext(BasicBlockContext):
     @staticmethod
     def _get_address_from_IMark(imark_string):
 
-        p = re.compile('.*IMark\(0x([0-9a-f]*),.*(\d)+,')
+        p = re.compile(r'.*IMark\(0x([0-9a-f]*),.*(\d)+,')
         m = p.match(imark_string)
 
         assert m is not None, "Failed to parse Imark string {}".format(imark_string)

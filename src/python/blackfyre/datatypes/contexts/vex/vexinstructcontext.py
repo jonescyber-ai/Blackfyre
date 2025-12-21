@@ -344,10 +344,10 @@ class VexInstructionContext(IRInstructionContext):
 
             ir_category = IRCategory.bit_logic
 
-        elif re.compile(".*Iop_[VIFS]?(\d*)[HS]?L?to[VIF]?(\d*)[S]?").match(bin_op) is not None:
+        elif re.compile(r".*Iop_[VIFS]?(\d*)[HS]?L?to[VIF]?(\d*)[S]?").match(bin_op) is not None:
 
             # e.g. 32HLto64 ; F64toF32
-            p = re.compile(".*Iop_[VIFS]?(\d*)[HS]?L?to[VIF]?(\d*)[S]?").match(bin_op)
+            p = re.compile(r".*Iop_[VIFS]?(\d*)[HS]?L?to[VIF]?(\d*)[S]?").match(bin_op)
 
             logger.debug("bin_op: '{}'".format(bin_op))
 
@@ -384,7 +384,7 @@ class VexInstructionContext(IRInstructionContext):
 
         # # Handle the extend and truncate unary expressions
         # # e.g. "Iop_64HIto32", "Iop_I32StoF64"
-        p = re.compile(".*Iop_[VH]?[FI]?(\d*)[SUH]?[I]?to[FV]?(\d*)")
+        p = re.compile(r".*Iop_[VH]?[FI]?(\d*)[SUH]?[I]?to[FV]?(\d*)")
         m = p.match(unary_op)
         if m:
 
