@@ -6,7 +6,7 @@ import archinfo
 import pyvex
 
 from blackfyre.utils import setup_custom_logger
-from blackfyre.common import ProcessorType
+from blackfyre.common import ProcessorType, IRCategory, BasicBlockExitType
 from blackfyre.datatypes.contexts.bbcontext import BasicBlockContext
 from blackfyre.datatypes.contexts.nativeinstructcontext import NativeInstructionContext
 from blackfyre.datatypes.contexts.vex.vexinstructcontext import VexInstructionContext
@@ -15,7 +15,7 @@ logger = setup_custom_logger(os.path.splitext(os.path.basename(__file__))[0])
 
 
 class VexBasicBlockContext(BasicBlockContext):
-    __slots__ = ["_arch", "_irsb"]
+    __slots__ = ["_arch", "_irsb", "_exit_type"]
 
     def __init__(self,
                  instruction_contexts: List[NativeInstructionContext],
@@ -34,6 +34,8 @@ class VexBasicBlockContext(BasicBlockContext):
         self._arch: archinfo.Arch = arch
 
         self._irsb: pyvex.IRSB = irsb
+
+        self._exit_type: BasicBlockExitType = None
 
         super().__init__(start_address, end_address, instruction_contexts, proc_type)
 
@@ -83,6 +85,23 @@ class VexBasicBlockContext(BasicBlockContext):
     @property
     def irsb(self):
         return self._irsb
+
+    @property
+    def exit_type(self) -> BasicBlockExitType:
+        """
+        Determines the exit type of this basic block by examining instruction categories.
+        Returns RETURN if any instruction has IRCategory.ret, otherwise UNKNOWN_TERMINAL.
+        Result is cached after first computation.
+        """
+        if self._exit_type is None:
+            for instr_ctx in self.vex_instruction_contexts:
+                if instr_ctx.category == IRCategory.ret:
+                    self._exit_type = BasicBlockExitType.RETURN
+                    break
+            else:
+                self._exit_type = BasicBlockExitType.UNKNOWN_TERMINAL
+
+        return self._exit_type
 
     @property
     def vex_instruction_contexts(self):

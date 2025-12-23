@@ -76,3 +76,35 @@ class IRCategory(Enum):
     compare = 10
     ret = 11
     other = 12
+
+from enum import Enum
+
+
+class BasicBlockExitType(str, Enum):
+    """
+    Classification of how control flow leaves a basic block
+    with respect to the containing function.
+    """
+
+    # Control continues to another basic block in the same function
+    NON_TERMINAL = "non_terminal"
+
+    # Normal function return (ret instruction)
+    RETURN = "return"
+
+    # Tail call: control transfers to another function
+    # and does not return to the caller
+    TAIL_CALL = "tail_call"
+
+    # Call to a function known not to return (exit, abort, panic, etc.)
+    NORETURN_CALL = "noreturn_call"
+
+    # Intentional trap or faulting instruction (ud2, int3, etc.)
+    TRAP = "trap"
+
+    # No CFG successors, but the reason for termination is unclear
+    UNKNOWN_TERMINAL = "unknown_terminal"
+
+    # Exit semantics have not been computed yet
+    UNKNOWN = "unknown"
+
