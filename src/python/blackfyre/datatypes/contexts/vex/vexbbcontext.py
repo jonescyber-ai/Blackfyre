@@ -1,6 +1,6 @@
 import os
 import re
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import archinfo
 import pyvex
@@ -35,7 +35,7 @@ class VexBasicBlockContext(BasicBlockContext):
 
         self._irsb: pyvex.IRSB = irsb
 
-        self._exit_type: BasicBlockExitType = None
+        self._exit_type: Optional[BasicBlockExitType] = None
 
         super().__init__(start_address, end_address, instruction_contexts, proc_type)
 
@@ -90,13 +90,18 @@ class VexBasicBlockContext(BasicBlockContext):
     def exit_type(self) -> BasicBlockExitType:
         """
         Determines the exit type of this basic block by examining instruction categories.
-        Returns RETURN if any instruction has IRCategory.ret, otherwise UNKNOWN_TERMINAL.
+        Returns RETURN if any instruction has IRCategory.ret,
+        NON_TERMINALf any instruction has IRCategory.call,
+        otherwise UNKNOWN_TERMINAL.
         Result is cached after first computation.
         """
         if self._exit_type is None:
             for instr_ctx in self.vex_instruction_contexts:
                 if instr_ctx.category == IRCategory.ret:
                     self._exit_type = BasicBlockExitType.RETURN
+                    break
+                elif instr_ctx.category == IRCategory.call:
+                    self._exit_type = BasicBlockExitType.NON_TERMINAL
                     break
             else:
                 self._exit_type = BasicBlockExitType.UNKNOWN_TERMINAL
