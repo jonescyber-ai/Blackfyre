@@ -352,30 +352,53 @@ The **Blackfyre Ghidra Plugin** enables streamlined extraction of binary data in
 
 Ghidra supports running scripts and performing automated tasks in headless mode. This is particularly useful for batch processing or when a graphical user interface (GUI) is not required.
 
-#### **Headless Mode Overview**
-- The headless mode is executed using the `analyzeHeadless` script provided in the Ghidra installation under the `support` directory.
-- You can use this mode to import binaries, run scripts, delete projects, and more.
+#### **Automated BCC Generation Utility (Recommended)**
 
-#### **Examples Provided**
-This repository includes example scripts for running Ghidra in headless mode:
+For streamlined BCC generation with batch processing support, use the **`generate_bcc.py` utility** in the `utils/` directory:
+
+- **Python API** for programmatic integration into your scripts
+- **Batch processing** for single binaries, directories, or lists of binaries
+- **Parallel processing** support for faster batch operations
+- **Configuration** via YAML file for easy customization
+
+See the [utils README](utils/README.md) for complete documentation and examples.
+
+**Quick Examples:**
+```python
+from utils.generate_bcc import generate_bcc_for_binary, generate_bcc_for_directory
+
+# Generate BCC for a single binary
+success = generate_bcc_for_binary("/bin/ls", "./output")
+
+# Generate BCCs for all binaries in a directory (batch processing)
+results = generate_bcc_for_directory(
+    binary_dir="/firmware/bin",
+    output_dir="./bccs",
+    parallel=4
+)
+```
+
+#### **Manual Headless Mode (Low-Level)**
+
+For manual control or understanding the underlying process, example scripts are provided:
 
 - **Linux**: `example_generate_bcc_headless.sh`
 - **Windows**: `example_generate_bcc_headless.bat`
 
-These scripts demonstrate how to configure and execute Ghidra's headless mode for generating the binary context container (BCC) using the `GenerateBinaryContext.java` script.
+These scripts demonstrate how to directly configure and execute Ghidra's `analyzeHeadless` command for generating BCCs using the `GenerateBinaryContext.java` script.
 
 ### Building the Ghidra Plugin
 
-The Ghidra plugin for **Blackfyre v1.0.1** relies on the `protobuf-java` dependency, which is already specified in the `build.gradle` file. This guide explains how to build the plugin using either Gradle or Eclipse GhidraDev.
+The Ghidra plugin for **Blackfyre** uses the `protobuf-java` library bundled with **Ghidra 11.4.2**. This guide explains how to build the plugin using either Gradle or Eclipse GhidraDev.
 
 
 #### Prerequisites
 
-1. **Ghidra Installation**  
-   Ensure that Ghidra is installed on your system. For this guide, we use **Ghidra 11.2.1** as an example.
+1. **Ghidra Installation**
+   Ensure that Ghidra is installed on your system. For this guide, we use **Ghidra 11.4.2** as an example.
 
-2. **Gradle Version**  
-   - **Ghidra 11.2.1** requires **Gradle 8.5** to build plugins.  
+2. **Gradle Version**
+   - **Ghidra 11.4.2** requires **Gradle 8.5** to build plugins.
    - If using a different version of Ghidra, refer to the [release notes](https://github.com/NationalSecurityAgency/ghidra/releases) for the correct Gradle version.
 
 3. **Set `GHIDRA_INSTALL_DIR`**  
@@ -417,14 +440,14 @@ If you require debugging capabilities or a development environment, use Eclipse 
 
 #### Notes
 
-- **Gradle Dependency Management**:  
-  The required dependency (`protobuf-java v3.21.8`) is already configured in the `build.gradle` file.
+- **Protobuf Dependency**:
+  The plugin uses the `protobuf-java` library bundled with Ghidra 11.4.2. The dependency is automatically managed through the `build.gradle` file.
 
-- **Gradle Version Compatibility**:  
-  - Use **Gradle 8.5** for **Ghidra 11.4.2**.  
+- **Gradle Version Compatibility**:
+  - Use **Gradle 8.5** for **Ghidra 11.4.2**.
   - If using a different version of Ghidra, confirm the required Gradle version in the [Ghidra release notes](https://github.com/NationalSecurityAgency/ghidra/releases).
 
-- **Debugging with GhidraDev**:  
+- **Debugging with GhidraDev**:
   Eclipse GhidraDev is recommended if you require enhanced debugging or development tools.
 
 ## Contributing

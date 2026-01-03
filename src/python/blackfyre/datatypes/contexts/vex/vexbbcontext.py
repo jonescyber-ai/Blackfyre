@@ -5,7 +5,7 @@ from typing import List, Dict, Optional
 import archinfo
 import pyvex
 
-from blackfyre.utils import setup_custom_logger
+from blackfyre.util import setup_custom_logger
 from blackfyre.common import ProcessorType, IRCategory, BasicBlockExitType
 from blackfyre.datatypes.contexts.bbcontext import BasicBlockContext
 from blackfyre.datatypes.contexts.nativeinstructcontext import NativeInstructionContext

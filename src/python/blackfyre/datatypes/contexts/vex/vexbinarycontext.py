@@ -2,7 +2,7 @@ import os
 from typing import Optional, List
 
 from blackfyre.common import PICKLE_EXT, IRCategory
-from blackfyre.utils import setup_custom_logger
+from blackfyre.util import setup_custom_logger
 from blackfyre.datatypes.contexts.binarycontext import BinaryContext
 from blackfyre.datatypes.contexts.vex.vexbbcontext import VexBasicBlockContext
 from blackfyre.datatypes.contexts.vex.vexfunctioncontext import VexFunctionContext

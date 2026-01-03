@@ -1,0 +1,36 @@
+BCCGeneratorConfig:
+  # ============================================================================
+  # REQUIRED CONFIGURATION - UPDATE THESE PATHS BEFORE RUNNING
+  # ============================================================================
+
+  # Ghidra Installation Path
+  # IMPORTANT: Update this to match your Ghidra 11.4.2 installation location
+  # Or set GHIDRA_PATH environment variable
+  ghidra_path: "/opt/ghidra_11.4.2_PUBLIC"
+
+  # Blackfyre Root Directory
+  # IMPORTANT: Update this to match your Blackfyre installation location
+  # The script will look for: <blackfyre_root>/src/ghidra/Blackfyre/ghidra_scripts/GenerateBinaryContext.java
+  # Set to null for auto-detection (may not work in all environments)
+  blackfyre_root: "/opt/jc_ai_repos/Blackfyre/"
+
+  # ============================================================================
+
+  # Script Path (leave as null to auto-construct from blackfyre_root)
+  script_path: null
+
+  # Project Configuration
+  project_dir: "/tmp"
+  project_name: "bcc_generation"
+
+  # BCC Generation Options
+  include_raw_binary: true
+  include_decompiled_code: true
+  decompile_timeout: 30  # seconds
+
+  # Processing Options
+  parallel: 1  # Number of parallel workers
+  timeout: 600  # seconds (10 minutes per binary)
+
+  # Output Options
+  output_dir: "./bccs"

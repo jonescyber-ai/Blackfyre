@@ -3,7 +3,7 @@ import os
 
 from typing import Dict, List, Type, Optional
 
-from blackfyre.utils import setup_custom_logger
+from blackfyre.util import setup_custom_logger
 from blackfyre.common import ProcessorType, Endness, DisassemblerType
 from blackfyre.datatypes.contexts.bbcontext import BasicBlockContext
 

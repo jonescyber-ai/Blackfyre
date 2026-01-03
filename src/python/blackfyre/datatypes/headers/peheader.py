@@ -1,6 +1,6 @@
 import os
 
-from blackfyre.utils import setup_custom_logger
+from blackfyre.util import setup_custom_logger
 from blackfyre.datatypes.headers.header import Header
 
 logger = setup_custom_logger(os.path.splitext(os.path.basename(__file__))[0])

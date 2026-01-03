@@ -8,7 +8,7 @@ import archinfo
 from typing import List, Dict, Type, Optional
 
 from blackfyre.datatypes.contexts.vex.vexinstructcontext import VexInstructionContext
-from blackfyre.utils import setup_custom_logger
+from blackfyre.util import setup_custom_logger
 from blackfyre.common import ProcessorType, ArchWordSize, Endness, IRCategory
 from blackfyre.datatypes.contexts.functioncontext import FunctionContext
 from blackfyre.datatypes.contexts.nativeinstructcontext import NativeInstructionContext

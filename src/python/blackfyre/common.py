@@ -77,7 +77,32 @@ class IRCategory(Enum):
     ret = 11
     other = 12
 
-from enum import Enum
+
+class VerbosityLevel(Enum):
+    """
+    Verbosity levels for logging and output control.
+
+    SILENT (0): No output
+        - Suppresses progress bars
+        - Suppresses all print statements
+        - Suppresses work queue status messages
+        - Suppresses summary statistics
+
+    NORMAL (1): Standard output (default)
+        - Shows progress bars
+        - Shows summary statistics at completion
+        - Suppresses work queue status messages
+        - Suppresses debug warnings
+
+    VERBOSE (2): Detailed output
+        - Shows progress bars
+        - Shows summary statistics
+        - Shows work queue status messages
+        - Shows debug warnings (e.g., ambiguous call preferences)
+    """
+    SILENT = 0
+    NORMAL = 1
+    VERBOSE = 2
 
 
 class BasicBlockExitType(str, Enum):

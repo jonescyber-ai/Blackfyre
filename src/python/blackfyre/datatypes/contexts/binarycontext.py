@@ -10,7 +10,7 @@ import numpy as np
 
 from blackfyre.datatypes.defineddata import DefinedData
 from blackfyre.datatypes.exportsymbol import ExportSymbol
-from blackfyre.utils import get_message_type, get_message_size, setup_custom_logger, mkdir_p
+from blackfyre.util import get_message_type, get_message_size, setup_custom_logger, mkdir_p
 from blackfyre.common import DisassemblerType, ProcessorType, FileType, ArchWordSize, Endness, \
     BINARY_CONTEXT_CONTAINER_EXT, DEFAULT_CACHE_DIR, PICKLE_EXT
 from blackfyre.datatypes.contexts.bbcontext import BasicBlockContext

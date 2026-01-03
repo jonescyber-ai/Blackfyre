@@ -4,7 +4,7 @@ import re
 from typing import Dict
 
 import pyvex
-from blackfyre.utils import setup_custom_logger
+from blackfyre.util import setup_custom_logger
 from blackfyre.common import IRCategory
 from blackfyre.datatypes.contexts.irinstructcontext import IRInstructionContext
 
