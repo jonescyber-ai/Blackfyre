@@ -42,7 +42,7 @@ This utility automates the process of running Ghidra headless analysis on single
 **IMPORTANT**: Before using this utility, you **must** edit `utils/bcc_generator_config.yaml` and update the following required paths:
 
 1. **`ghidra_path`** - Set to your Ghidra 11.4.2 installation directory
-2. **`blackfyre_root`** - Set to your Blackfyre repository root directory
+2. **`blackfyre_root`** - (Optional) Set to your Blackfyre repository root directory, or leave as `null` to auto-detect
 
 These paths are clearly marked in the YAML file with `# ← CHANGE THIS` comments.
 
@@ -101,7 +101,7 @@ pip install -r utils/requirements.txt
 
 # 2. REQUIRED: Edit utils/bcc_generator_config.yaml and update these paths:
 #    - ghidra_path: "/your/path/to/ghidra_11.4.2_PUBLIC"
-#    - blackfyre_root: "/your/path/to/Blackfyre/"
+#    - blackfyre_root: null  # auto-detect (or set to "/your/path/to/Blackfyre/")
 
 # 3. Generate BCC for single binary (using test binary from repository)
 # Run from the Blackfyre root directory
@@ -133,6 +133,18 @@ python -m utils.generate_bcc \
     --verbose
 ```
 
+#### Use All CPU Cores
+```bash
+# Use all available CPU cores
+python -m utils.generate_bcc --binary-dir /firmware/bin --output-dir ./bccs --parallel 0
+```
+
+#### Disable Embedding Raw Binary Bytes
+```bash
+# Generate BCCs without embedding raw binary bytes (overrides YAML)
+python -m utils.generate_bcc --binary-dir /firmware/bin --output-dir ./bccs --disable-raw-binary
+```
+
 #### Batch Processing from List
 ```bash
 # Create list of binaries
@@ -161,7 +173,8 @@ python -m utils.generate_bcc \
 **Configuration**:
 - `--config PATH` - Custom config file (default: `utils/bcc_generator_config.yaml`)
 - `--ghidra-path PATH` - Override Ghidra path
-- `--parallel N` - Number of parallel workers
+- `--parallel N` - Number of parallel workers (`0` = all CPU cores)
+- `--disable-raw-binary` - Force `include_raw_binary: false` (bypasses config for this setting)
 
 **Other**:
 - `-v, --verbose` - Show detailed Ghidra output
@@ -174,6 +187,22 @@ Settings are applied in this order (highest priority first):
 2. Environment variables (`$GHIDRA_PATH`)
 3. Config file (`bcc_generator_config.yaml`)
 4. Built-in defaults
+
+### Testing
+
+The repository’s binary fixtures live under `test/` (e.g., `test/bison_arm_...`).
+
+Automated Python tests also live under `test/` and are named `test_*.py`.
+
+The `generate_bcc` test is an **integration** test (it requires Ghidra headless). It will
+automatically skip if `support/analyzeHeadless` cannot be found via `$GHIDRA_PATH` or the
+configured `ghidra_path`.
+
+Run it from the Blackfyre repo root:
+
+```bash
+python -m unittest discover -s test -p "test_*.py" -v
+```
 
 ---
 

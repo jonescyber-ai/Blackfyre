@@ -100,7 +100,7 @@ class BCCGeneratorConfig:
         include_raw_binary: Whether to include raw binary bytes in BCC
         include_decompiled_code: Whether to include decompiled code in BCC
         decompile_timeout: Timeout for decompilation in seconds
-        parallel: Default number of parallel workers for batch processing
+        parallel: Default number of parallel workers for batch processing (0 = all CPU cores)
         timeout: Timeout for entire Ghidra analysis process in seconds
         output_dir: Default output directory for generated BCC files
     """
@@ -112,9 +112,54 @@ class BCCGeneratorConfig:
     include_raw_binary: bool = True
     include_decompiled_code: bool = True
     decompile_timeout: int = 30
-    parallel: int = 1
+    # 0 means "use all available CPU cores" (os.cpu_count()).
+    parallel: int = 0
     timeout: int = 300
     output_dir: str = "./bccs"
+
+
+def _resolve_parallel_workers(parallel: Optional[int]) -> int:
+    """Resolve a user/configured parallel value into an actual worker count.
+
+    Semantics:
+      - None: caller should supply a default before invoking this helper
+      - 0 or negative: use all available CPU cores
+      - 1+: use that explicit worker count
+    """
+    if parallel is None:
+        raise ValueError("parallel must not be None when resolving workers")
+
+    if parallel <= 0:
+        return os.cpu_count() or 1
+
+    return parallel
+
+
+def _auto_detect_blackfyre_root(start_paths: List[Path]) -> Optional[Path]:
+    """Best-effort auto-detection of the Blackfyre repository root.
+
+    We consider a directory to be the Blackfyre root if it contains:
+      - src/ghidra/Blackfyre/ghidra_scripts/GenerateBinaryContext.java
+
+    Args:
+        start_paths: Paths to start searching upward from.
+
+    Returns:
+        Path to detected Blackfyre root directory, or None if not found.
+    """
+    marker = Path("src") / "ghidra" / "Blackfyre" / "ghidra_scripts" / "GenerateBinaryContext.java"
+
+    for start in start_paths:
+        current = start.resolve()
+        if current.is_file():
+            current = current.parent
+
+        for parent in [current, *current.parents]:
+            candidate = parent / marker
+            if candidate.exists():
+                return parent
+
+    return None
 
 
 def get_bcc_generator_config(config_path: Optional[Path] = None) -> BCCGeneratorConfig:
@@ -163,6 +208,15 @@ def get_bcc_generator_config(config_path: Optional[Path] = None) -> BCCGenerator
 
     if config.blackfyre_root and "${" in config.blackfyre_root:
         config.blackfyre_root = os.path.expandvars(config.blackfyre_root)
+
+    # Auto-detect blackfyre_root if not provided
+    if config.blackfyre_root is None:
+        detected_root = _auto_detect_blackfyre_root([Path(__file__), Path.cwd()])
+        if detected_root is not None:
+            config.blackfyre_root = str(detected_root)
+            logger.info(f"Auto-detected Blackfyre root: {config.blackfyre_root}")
+        else:
+            logger.debug("Could not auto-detect Blackfyre root")
 
     # Auto-construct script_path from blackfyre_root if not explicitly set
     if config.script_path is None and config.blackfyre_root:
@@ -243,13 +297,16 @@ class BCCGenerator:
                 logger.debug(f"Found script at: {blackfyre_path}")
                 return blackfyre_path
 
-        # Check common locations relative to this file
-        search_paths = [
-            Path(__file__).parent.parent / "Blackfyre" / "src" / "ghidra" / "Blackfyre" / "ghidra_scripts" / "GenerateBinaryContext.java",
-            Path(__file__).parent.parent / "Blackfyre" / "examples" / "ghidra" / "GenerateBinaryContext.java",
-            Path(__file__).parent.parent / "Blackfyre" / "ghidra_scripts" / "GenerateBinaryContext.java",
-            Path.cwd() / "Blackfyre" / "src" / "ghidra" / "Blackfyre" / "ghidra_scripts" / "GenerateBinaryContext.java",
-        ]
+        # Check common locations relative to this file / working directory
+        repo_root = _auto_detect_blackfyre_root([Path(__file__), Path.cwd()])
+        search_paths = []
+        if repo_root is not None:
+            search_paths.extend(
+                [
+                    repo_root / "src" / "ghidra" / "Blackfyre" / "ghidra_scripts" / "GenerateBinaryContext.java",
+                    repo_root / "examples" / "ghidra" / "GenerateBinaryContext.java",
+                ]
+            )
 
         for path in search_paths:
             if path.exists():
@@ -329,67 +386,67 @@ class BCCGenerator:
                 logger.info("Ghidra Analysis Output:")
                 logger.info("=" * 80)
 
-            process = subprocess.Popen(
+            with subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-            )
+            ) as process:
+                # Show initial progress indicator only if show_progress is True
+                if show_progress:
+                    print(f"⏳ Starting Ghidra analysis for {binary_path.name}...", flush=True)
 
-            # Show initial progress indicator only if show_progress is True
-            if show_progress:
-                print(f"⏳ Starting Ghidra analysis for {binary_path.name}...", flush=True)
+                # Regex patterns to parse progress
+                progress_pattern = re.compile(r'\[(\d+)/(\d+)\]\s+Processed (Function|Export Symbol|Import Symbol|String Reference|Caller to Callees):\s*(.+)')
 
-            # Regex patterns to parse progress
-            progress_pattern = re.compile(r'\[(\d+)/(\d+)\]\s+Processed (Function|Export Symbol|Import Symbol|String Reference|Caller to Callees):\s*(.+)')
+                # Track progress bars for different stages
+                progress_bars = {}
+                first_progress_seen = False
 
-            # Track progress bars for different stages
-            progress_bars = {}
-            first_progress_seen = False
+                # Stream output line by line
+                if process.stdout is not None:
+                    for line in process.stdout:
+                        # Check if this is a progress line
+                        match = progress_pattern.search(line)
+                        if match:
+                            # Only show detailed progress if requested
+                            if show_progress:
+                                # Clear the initial progress indicator on first progress line
+                                if not first_progress_seen:
+                                    print("\r" + " " * 80 + "\r", end='', flush=True)  # Clear the waiting message
+                                    first_progress_seen = True
 
-            # Stream output line by line
-            for line in process.stdout:
-                # Check if this is a progress line
-                match = progress_pattern.search(line)
-                if match:
-                    # Only show detailed progress if requested
-                    if show_progress:
-                        # Clear the initial progress indicator on first progress line
-                        if not first_progress_seen:
-                            print("\r" + " " * 80 + "\r", end='', flush=True)  # Clear the waiting message
-                            first_progress_seen = True
+                                current = int(match.group(1))
+                                total = int(match.group(2))
+                                stage = match.group(3)
+                                item = match.group(4)
 
-                        current = int(match.group(1))
-                        total = int(match.group(2))
-                        stage = match.group(3)
-                        item = match.group(4)
+                                # Create or update progress bar for this stage
+                                if stage not in progress_bars:
+                                    progress_bars[stage] = tqdm(
+                                        total=total,
+                                        desc=f"  {stage}s",
+                                        unit=stage.lower(),
+                                        leave=False,
+                                        position=0
+                                    )
 
-                        # Create or update progress bar for this stage
-                        if stage not in progress_bars:
-                            progress_bars[stage] = tqdm(
-                                total=total,
-                                desc=f"  {stage}s",
-                                unit=stage.lower(),
-                                leave=False,
-                                position=0
-                            )
+                                # Update progress bar
+                                progress_bars[stage].n = current
+                                progress_bars[stage].set_postfix_str(item[:40])  # Show item name (truncated)
+                                progress_bars[stage].refresh()
+                        else:
+                            # Only print non-progress lines in verbose mode
+                            if verbose_mode:
+                                print(line, end='')
 
-                        # Update progress bar
-                        progress_bars[stage].n = current
-                        progress_bars[stage].set_postfix_str(item[:40])  # Show item name (truncated)
-                        progress_bars[stage].refresh()
-                else:
-                    # Only print non-progress lines in verbose mode
-                    if verbose_mode:
-                        print(line, end='')
+                # Close all progress bars
+                for pbar in progress_bars.values():
+                    pbar.close()
 
-            # Close all progress bars
-            for pbar in progress_bars.values():
-                pbar.close()
-
-            process.wait(timeout=self.config.timeout)
-            returncode = process.returncode
+                process.wait(timeout=self.config.timeout)
+                returncode = process.returncode
 
             if verbose_mode:
                 logger.info("=" * 80)
@@ -455,18 +512,23 @@ class BCCGenerator:
         if parallel is None:
             parallel = self.config.parallel
 
+        resolved_parallel = _resolve_parallel_workers(parallel)
+
         # Only log if not SILENT
         if verbosity is None or verbosity > 0:
             logger.info(f"Generating BCCs for {len(binary_paths)} binaries")
             logger.info(f"Output directory: {output_dir}")
-            logger.info(f"Parallel workers: {parallel}")
+            if parallel <= 0:
+                logger.info(f"Parallel workers: {resolved_parallel} (all available CPU cores)")
+            else:
+                logger.info(f"Parallel workers: {resolved_parallel}")
 
         results = {"success": 0, "failed": 0, "total": len(binary_paths)}
 
         # Suppress progress bars if SILENT
         show_progress = verbosity is None or verbosity > 0
 
-        if parallel == 1:
+        if resolved_parallel == 1:
             # Sequential processing - show detailed progress for each binary
             if show_progress:
                 with tqdm(total=len(binary_paths), desc="Overall Progress", unit="binary") as pbar:
@@ -485,7 +547,7 @@ class BCCGenerator:
                         results["failed"] += 1
         else:
             # Parallel processing with process pool - use high-level progress bar only
-            with ProcessPoolExecutor(max_workers=parallel) as executor:
+            with ProcessPoolExecutor(max_workers=resolved_parallel) as executor:
                 futures = {}
                 for binary_path in binary_paths:
                     # Disable detailed progress for parallel execution to avoid conflicts
@@ -781,7 +843,13 @@ def main() -> None:
     parser.add_argument(
         "--parallel",
         type=int,
-        help="Override parallel workers from config"
+        help="Override parallel workers from config (0 = all CPU cores)"
+    )
+
+    parser.add_argument(
+        "--disable-raw-binary",
+        action="store_true",
+        help="Disable including raw binary bytes in generated BCCs (overrides config include_raw_binary)"
     )
 
     # Logging options
@@ -811,6 +879,13 @@ def main() -> None:
         config.output_dir = str(args.output_dir)
     if args.parallel is not None:
         config.parallel = args.parallel
+    if args.disable_raw_binary:
+        # Explicitly bypass config for this option to avoid accidentally embedding binaries.
+        if config.include_raw_binary:
+            logger.info("CLI flag --disable-raw-binary set: forcing include_raw_binary=False (overriding config)")
+        else:
+            logger.info("CLI flag --disable-raw-binary set: include_raw_binary already False")
+        config.include_raw_binary = False
 
     # Check if Ghidra path is set, try environment variable as fallback
     if not config.ghidra_path or config.ghidra_path == "/opt/ghidra_11.2.1_PUBLIC":

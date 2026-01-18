@@ -12,7 +12,7 @@ BCCGeneratorConfig:
   # IMPORTANT: Update this to match your Blackfyre installation location
   # The script will look for: <blackfyre_root>/src/ghidra/Blackfyre/ghidra_scripts/GenerateBinaryContext.java
   # Set to null for auto-detection (may not work in all environments)
-  blackfyre_root: "/opt/jc_ai_repos/Blackfyre/"
+  blackfyre_root: null
 
   # ============================================================================
 
@@ -29,7 +29,9 @@ BCCGeneratorConfig:
   decompile_timeout: 30  # seconds
 
   # Processing Options
-  parallel: 1  # Number of parallel workers
+  # Number of parallel workers.
+  # Set to 0 to use all available CPU cores.
+  parallel: 0
   timeout: 600  # seconds (10 minutes per binary)
 
   # Output Options
