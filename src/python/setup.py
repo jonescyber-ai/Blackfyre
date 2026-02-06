@@ -12,6 +12,7 @@ setup(
         "pyvex==9.2.78",
         "protobuf==4.25.1",
         "numpy==2.2.6",
+        "omegaconf",
     ],
     extras_require={
         "test": [
