@@ -1,5 +1,4 @@
 from setuptools import setup, find_packages
-
 setup(
     name='blackfyre',
     version='1.0.1',
@@ -14,4 +13,9 @@ setup(
         "protobuf==4.25.1",
         "numpy==2.2.6",
     ],
+    extras_require={
+        "test": [
+            "pytest>=7.0.0",
+        ],
+    },
 )

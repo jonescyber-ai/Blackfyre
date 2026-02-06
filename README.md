@@ -342,7 +342,22 @@ The **Blackfyre Ghidra Plugin** enables streamlined extraction of binary data in
    - Check the content of the `.bcc` file to ensure it includes the selected components (e.g., raw binary or decompiled code).
    - If any errors occur during script execution, refer to the error messages for troubleshooting.
 
-5. **Notes**:
+5. **Run the Integration Test to Verify Plugin Installation**:
+   - After installing the plugin, you can run the integration test to verify that the Ghidra plugin is correctly installed and able to generate and load BCC files.
+   - From the Blackfyre project root directory, activate the virtual environment and run the test:
+     ```bash
+     source venv/bin/activate
+     python -m pytest test/test_generate_bcc_integration.py -v
+     ```
+     Or if pytest is not installed:
+     ```bash
+     source venv/bin/activate
+     python -m unittest test.test_generate_bcc_integration -v
+     ```
+   - The test will use Ghidra headless mode to generate a BCC file from a test binary and then load it to verify the contents.
+   - If the test passes, the plugin is correctly installed and functioning.
+
+6. **Notes**:
    - Always use a plugin version compatible with your Ghidra version to avoid compatibility issues.
    - Excluding decompiled code can significantly reduce processing time, especially for binaries with a large number of functions.
    - If you encounter issues during installation or script execution, refer to the plugin documentation _(if available)_ or open an issue in the Blackfyre repository.
