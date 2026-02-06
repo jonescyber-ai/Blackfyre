@@ -73,13 +73,13 @@ This architecture coverage ensures Blackfyre can be applied to a wide range of b
 ---
 ### ⚙️ Compatibility and Version Notes
 
-The **latest `main` branch** of this repository contains code that was **built from the Blackfyre source** and **tested on Ghidra 11.4**.
+The **latest `main` branch** of this repository contains code that was **built from the Blackfyre source** and **tested on Ghidra 11.4.2**.
 
 > **Important:**  
 > - Ghidra **11.4 introduces breaking API changes** that make this plugin **incompatible with older Ghidra versions**, such as **11.2**.  
 > - The plugin’s Java and Ghidra integration code (including the `blackfyre` components) was **generated using Protocol Buffers v3.21.8**, which matches the **protobuf version bundled with Ghidra 11.4.2**.  
 > - Attempting to build or load this plugin on earlier Ghidra releases will result in **API resolution errors or runtime incompatibilities**.  
-> - For consistent results, use **Ghidra 11.4 or 11.4.2** when building or deploying this plugin.
+> - For consistent results, use **Ghidra 11.4.2** when building or deploying this plugin.
 
 ---
 
