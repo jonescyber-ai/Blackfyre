@@ -6,8 +6,8 @@ Utilities for generating and working with Binary Context Container (BCC) files.
 
 | Tool | Description and Usage |
 |------|----------------------|
-| 📦 **generate_bcc.py** | Generate BCC files using Ghidra headless analyzer. Supports single/batch processing, parallel execution, and YAML configuration. **Python API available for programmatic use.**<br><br>`python -m utils.generate_bcc --binary test/bison_arm_9409117ee68a2d75643bb0e0a15c71ab52d4e90fa066e419b1715e029bcdc3dd --output-dir ./out` |
-| 🔧 **extract_binary_from_bcc.py** | Extract original binary from BCC file<br><br>`python -m utils.extract_binary_from_bcc test/bison_arm_9409117ee68a2d75643bb0e0a15c71ab52d4e90f_9409117ee68a2d75643bb0e0a15c71ab52d4e90fa066e419b1715e029bcdc3dd.bcc ./extracted_binary` |
+| 📦 **generate_bcc.py** | Generate BCC files using Ghidra headless analyzer. Supports single/batch processing, parallel execution, and YAML configuration. **Python API available for programmatic use.**<br><br>`python -m blackfyre.utils.generate_bcc --binary test/bison_arm_9409117ee68a2d75643bb0e0a15c71ab52d4e90fa066e419b1715e029bcdc3dd --output-dir ./out` |
+| 🔧 **extract_binary_from_bcc.py** | Extract original binary from BCC file<br><br>`python -m blackfyre.utils.extract_binary_from_bcc test/bison_arm_9409117ee68a2d75643bb0e0a15c71ab52d4e90f_9409117ee68a2d75643bb0e0a15c71ab52d4e90fa066e419b1715e029bcdc3dd.bcc ./extracted_binary` |
 
 ---
 
@@ -25,6 +25,8 @@ Before using these utilities, ensure you have the following installed:
    - See the [main README](../README.md#installation-and-usage-of-the-ghidra-plugin) for complete setup instructions
 
 3. **Utility-Specific Dependencies**:
+   All dependencies are included when you install from the repo root (`pip install -e .`).
+   If using the legacy install (`src/python/`), install utility deps separately:
    ```bash
    pip install -r utils/requirements.txt
    ```
@@ -52,11 +54,11 @@ Use the Python API to integrate BCC generation into your scripts:
 
 ```python
 import os
-from utils.generate_bcc import generate_bcc_for_binary, generate_bcc_for_directory
+from blackfyre.utils.generate_bcc import generate_bcc_for_binary, generate_bcc_for_directory
 from blackfyre.common import VerbosityLevel
 
 # Set the path to your Blackfyre repository
-BLACKFYRE_REPO = "/opt/jc_ai_repos/Blackfyre"
+BLACKFYRE_REPO = "/opt/Blackfyre"
 
 # Generate single BCC (output_dir is the folder, BCC filename is auto-generated)
 # Using the test binary included in the repository
@@ -96,8 +98,8 @@ print(f"Generated {results['success']}/{results['total']} BCCs")
 ### Quick Start (Command Line)
 
 ```bash
-# 1. Install dependencies (from the Blackfyre root directory)
-pip install -r utils/requirements.txt
+# 1. Install Blackfyre (from the repo root — includes utils and all deps)
+pip install -e .
 
 # 2. REQUIRED: Edit utils/bcc_generator_config.yaml and update these paths:
 #    - ghidra_path: "/your/path/to/ghidra_11.4.2_PUBLIC"
@@ -105,12 +107,12 @@ pip install -r utils/requirements.txt
 
 # 3. Generate BCC for single binary (using test binary from repository)
 # Run from the Blackfyre root directory
-python -m utils.generate_bcc \
+python -m blackfyre.utils.generate_bcc \
     --binary test/bison_arm_9409117ee68a2d75643bb0e0a15c71ab52d4e90fa066e419b1715e029bcdc3dd \
     --output-dir ./output
 
 # 4. Batch process directory (parallel)
-python -m utils.generate_bcc --binary-dir /firmware/bin --output-dir ./bccs --parallel 4
+python -m blackfyre.utils.generate_bcc --binary-dir /firmware/bin --output-dir ./bccs --parallel 4
 ```
 
 ### Usage Examples
@@ -119,14 +121,14 @@ python -m utils.generate_bcc --binary-dir /firmware/bin --output-dir ./bccs --pa
 ```bash
 # Using the test binary included in the repository
 # Run from the Blackfyre root directory
-python -m utils.generate_bcc \
+python -m blackfyre.utils.generate_bcc \
     --binary test/bison_arm_9409117ee68a2d75643bb0e0a15c71ab52d4e90fa066e419b1715e029bcdc3dd \
     --output-dir ./output
 ```
 
 #### Batch Processing from Directory
 ```bash
-python -m utils.generate_bcc \
+python -m blackfyre.utils.generate_bcc \
     --binary-dir /firmware/bin \
     --output-dir ./bccs \
     --parallel 4 \
@@ -136,13 +138,13 @@ python -m utils.generate_bcc \
 #### Use All CPU Cores
 ```bash
 # Use all available CPU cores
-python -m utils.generate_bcc --binary-dir /firmware/bin --output-dir ./bccs --parallel 0
+python -m blackfyre.utils.generate_bcc --binary-dir /firmware/bin --output-dir ./bccs --parallel 0
 ```
 
 #### Disable Embedding Raw Binary Bytes
 ```bash
 # Generate BCCs without embedding raw binary bytes (overrides YAML)
-python -m utils.generate_bcc --binary-dir /firmware/bin --output-dir ./bccs --disable-raw-binary
+python -m blackfyre.utils.generate_bcc --binary-dir /firmware/bin --output-dir ./bccs --disable-raw-binary
 ```
 
 #### Batch Processing from List
@@ -155,7 +157,7 @@ cat > binaries.txt << EOF
 EOF
 
 # Generate BCCs
-python -m utils.generate_bcc \
+python -m blackfyre.utils.generate_bcc \
     --binary-list binaries.txt \
     --output-dir ./bccs
 ```
@@ -201,7 +203,7 @@ configured `ghidra_path`.
 Run it from the Blackfyre repo root:
 
 ```bash
-python -m unittest discover -s test -p "test_*.py" -v
+python -m pytest test/ -v
 ```
 
 ---
@@ -217,7 +219,7 @@ Extract the original binary executable from a BCC file.
 ```bash
 # Using the test BCC file included in the repository
 # Run from the Blackfyre root directory
-python -m utils.extract_binary_from_bcc \
+python -m blackfyre.utils.extract_binary_from_bcc \
     test/bison_arm_9409117ee68a2d75643bb0e0a15c71ab52d4e90f_9409117ee68a2d75643bb0e0a15c71ab52d4e90fa066e419b1715e029bcdc3dd.bcc \
     ./extracted_binary
 ```

@@ -86,7 +86,7 @@ The **latest `main` branch** of this repository contains code that was **built f
 ## Installation
 
 ### Prerequisites
-- Python 3.x
+- Python 3.10+
 - Ghidra (optional, for Ghidra Plugin)
 
 ### Installing the Blackfyre Python Library
@@ -101,12 +101,16 @@ However, installation on ARM-based architectures (e.g., Mac M1/M2) can be more c
    cd Blackfyre
    ```
 
-2. Install the Python library:
+2. Install the Python library (from the repo root):
    ```sh
-   cd src/python
    pip install -e .
    ```
-   
+   This installs the core `blackfyre` BCC reader library **and** the `blackfyre.utils`
+   BCC generation/extraction utilities as a single editable package.
+
+   > **Legacy install:** The previous install path (`cd src/python && pip install -e .`)
+   > still works but only installs the core library without `blackfyre.utils`.
+
 3. **Resolve pyvex installation issues (if applicable)**:
    - For x86_64/AMD64 systems:
      - `pyvex` should install without issues using `pip`, as it has prebuilt wheels for these architectures.
@@ -115,16 +119,20 @@ However, installation on ARM-based architectures (e.g., Mac M1/M2) can be more c
        - Use the [Anaconda distribution](https://www.anaconda.com/) to create a virtual environment.
        - Install `pyvex` and its dependencies manually within this environment.
      - There is no guarantee this workaround will work and additional troubleshooting may still be required.
-3. Go back to the root directory:
+4. Verify the install:
    ```sh
-   cd ../../
-   ```   
-
-4. Verify the install by running the example python script:
-   ```sh
-    python examples/python/example_displaying_binary_metadata.py
-    ```
+   python examples/python/example_displaying_binary_metadata.py
+   ```
    If the script runs without errors, the installation was successful.
+
+   You can also verify both the core library and utils are importable:
+   ```python
+   # Core BCC reader
+   from blackfyre.datatypes.contexts.binarycontext import BinaryContext
+
+   # BCC generation utilities (requires Ghidra)
+   from blackfyre.utils.generate_bcc import generate_bcc_for_binary, get_bcc_generator_config
+   ```
 
 #### Additional Notes:
 - On x86_64/AMD64 systems, the installation process for `Blackfyre` is typically smooth due to the availability of prebuilt binaries for `pyvex`.
@@ -380,7 +388,7 @@ See the [utils README](utils/README.md) for complete documentation and examples.
 
 **Quick Examples:**
 ```python
-from utils.generate_bcc import generate_bcc_for_binary, generate_bcc_for_directory
+from blackfyre.utils.generate_bcc import generate_bcc_for_binary, generate_bcc_for_directory
 
 # Generate BCC for a single binary
 success = generate_bcc_for_binary("/bin/ls", "./output")

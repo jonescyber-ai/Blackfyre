@@ -14,9 +14,9 @@ Usage:
     source venv/bin/activate
 
     # Run with -m flag
-    python -m utils.generate_bcc --binary /path/to/binary --output-dir /path/to/output
-    python -m utils.generate_bcc --binary-dir /path/to/binaries --output-dir /path/to/output
-    python -m utils.generate_bcc --binary-list binaries.txt --output-dir /path/to/output
+    python -m blackfyre.utils.generate_bcc --binary /path/to/binary --output-dir /path/to/output
+    python -m blackfyre.utils.generate_bcc --binary-dir /path/to/binaries --output-dir /path/to/output
+    python -m blackfyre.utils.generate_bcc --binary-list binaries.txt --output-dir /path/to/output
 
 Requirements:
     - Ghidra installed (configure in bcc_generator_config.yaml or use --ghidra-path)
@@ -28,16 +28,16 @@ Examples:
     source venv/bin/activate
 
     # Generate BCC for a single binary (uses config defaults)
-    python -m utils.generate_bcc --binary /bin/ls --output-dir ./output
+    python -m blackfyre.utils.generate_bcc --binary /bin/ls --output-dir ./output
 
     # Generate BCCs for all binaries in a directory (parallel)
-    python -m utils.generate_bcc --binary-dir /firmware/bin --output-dir ./bccs --parallel 4
+    python -m blackfyre.utils.generate_bcc --binary-dir /firmware/bin --output-dir ./bccs --parallel 4
 
     # Generate BCCs from a list of binaries with verbose output
-    python -m utils.generate_bcc --binary-list binaries.txt --output-dir ./bccs -v
+    python -m blackfyre.utils.generate_bcc --binary-list binaries.txt --output-dir ./bccs -v
 
 Public API Usage (programmatic):
-    from utils.generate_bcc import generate_bcc_for_binary, generate_bcc_for_directory, generate_bcc_for_list
+    from blackfyre.utils.generate_bcc import generate_bcc_for_binary, generate_bcc_for_directory, generate_bcc_for_list
     from blackfyre.common import VerbosityLevel
 
     # Single binary - pass output directory (Blackfyre generates ls.bcc)
@@ -58,12 +58,15 @@ Verbosity Levels:
 
 import os
 import sys
+import signal
+import atexit
 import argparse
 import subprocess
 import logging
 import re
+import time
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Set
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from omegaconf import OmegaConf
@@ -71,6 +74,68 @@ from tqdm import tqdm
 
 # Module-level logger (will be overridden in __main__ for proper naming)
 logger = logging.getLogger(__name__)
+
+# ---------- Process-group cleanup infrastructure ----------
+# Track active child process groups so we can kill them on unexpected exit.
+_active_pgids: Set[int] = set()
+
+
+def _force_kill_pid(pid: int):
+    """Force-kill a process and its entire tree, cross-platform."""
+    if sys.platform == "win32":
+        # taskkill /T kills the entire process tree, /F forces it
+        try:
+            subprocess.call(
+                ["taskkill", "/T", "/F", "/PID", str(pid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            # Fallback if taskkill is unavailable
+            try:
+                os.kill(pid, signal.CTRL_BREAK_EVENT)
+            except (ProcessLookupError, OSError):
+                pass
+    else:
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except (ProcessLookupError, OSError, PermissionError):
+            # Group already gone; try killing the lead process directly
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except (ProcessLookupError, OSError):
+                pass
+
+
+def _cleanup_active_processes():
+    """Kill all tracked process groups.  Registered via atexit and signal handlers."""
+    for pgid in list(_active_pgids):
+        _force_kill_pid(pgid)
+    _active_pgids.clear()
+
+
+def _signal_cleanup_handler(signum, frame):
+    """Signal handler that cleans up child processes then re-raises."""
+    _cleanup_active_processes()
+    # Re-raise the signal with default handler so the exit code is correct
+    signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
+
+# Register cleanup for normal exit and common termination signals
+atexit.register(_cleanup_active_processes)
+if sys.platform == "win32":
+    # Windows only supports SIGINT (Ctrl+C)
+    try:
+        signal.signal(signal.SIGINT, _signal_cleanup_handler)
+    except OSError:
+        pass
+else:
+    for _sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        try:
+            signal.signal(_sig, _signal_cleanup_handler)
+        except OSError:
+            pass  # some signals can't be caught in certain contexts
 
 # Public API
 __all__ = [
@@ -386,14 +451,32 @@ class BCCGenerator:
                 logger.info("Ghidra Analysis Output:")
                 logger.info("=" * 80)
 
-            with subprocess.Popen(
-                cmd,
+            import threading
+
+            deadline = time.monotonic() + self.config.timeout
+
+            # Launch in a new process group so we can kill child processes
+            # (e.g. Ghidra's decompiler) on timeout or cleanup.
+            #   Unix:    start_new_session=True  → os.killpg(pid, sig)
+            #   Windows: CREATE_NEW_PROCESS_GROUP → os.kill(pid, CTRL_BREAK)
+            popen_kwargs: dict = dict(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                start_new_session=True,
-            ) as process:
+            )
+            if sys.platform == "win32":
+                popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+            else:
+                popen_kwargs["start_new_session"] = True
+
+            process = subprocess.Popen(cmd, **popen_kwargs)
+
+            # Track this process group for cleanup on unexpected exit
+            _pgid = process.pid if sys.platform != "win32" else process.pid
+            _active_pgids.add(_pgid)
+
+            try:
                 # Show initial progress indicator only if show_progress is True
                 if show_progress:
                     print(f"⏳ Starting Ghidra analysis for {binary_path.name}...", flush=True)
@@ -404,57 +487,75 @@ class BCCGenerator:
                 # Track progress bars for different stages
                 progress_bars = {}
                 first_progress_seen = False
+                timed_out = False
 
-                # Stream output line by line
-                if process.stdout is not None:
-                    for line in process.stdout:
-                        # Check if this is a progress line
-                        match = progress_pattern.search(line)
-                        if match:
-                            # Only show detailed progress if requested
-                            if show_progress:
-                                # Clear the initial progress indicator on first progress line
-                                if not first_progress_seen:
-                                    print("\r" + " " * 80 + "\r", end='', flush=True)  # Clear the waiting message
-                                    first_progress_seen = True
+                def _read_stdout():
+                    """Read stdout in a background thread so the main thread can enforce the timeout."""
+                    nonlocal first_progress_seen
+                    if process.stdout is None:
+                        return
+                    try:
+                        for line in process.stdout:
+                            match = progress_pattern.search(line)
+                            if match:
+                                if show_progress:
+                                    if not first_progress_seen:
+                                        print("\r" + " " * 80 + "\r", end='', flush=True)
+                                        first_progress_seen = True
 
-                                current = int(match.group(1))
-                                total = int(match.group(2))
-                                stage = match.group(3)
-                                item = match.group(4)
+                                    current = int(match.group(1))
+                                    total = int(match.group(2))
+                                    stage = match.group(3)
+                                    item = match.group(4)
 
-                                # Create or update progress bar for this stage
-                                if stage not in progress_bars:
-                                    progress_bars[stage] = tqdm(
-                                        total=total,
-                                        desc=f"  {stage}s",
-                                        unit=stage.lower(),
-                                        leave=False,
-                                        position=0
-                                    )
+                                    if stage not in progress_bars:
+                                        progress_bars[stage] = tqdm(
+                                            total=total,
+                                            desc=f"  {stage}s",
+                                            unit=stage.lower(),
+                                            leave=False,
+                                            position=0
+                                        )
 
-                                # Update progress bar
-                                progress_bars[stage].n = current
-                                progress_bars[stage].set_postfix_str(item[:40])  # Show item name (truncated)
-                                progress_bars[stage].refresh()
-                        else:
-                            # Only print non-progress lines in verbose mode
-                            if verbose_mode:
-                                print(line, end='')
+                                    progress_bars[stage].n = current
+                                    progress_bars[stage].set_postfix_str(item[:40])
+                                    progress_bars[stage].refresh()
+                            else:
+                                if verbose_mode:
+                                    print(line, end='')
+                    except ValueError:
+                        pass  # stdout closed after timeout kill
+
+                reader = threading.Thread(target=_read_stdout, daemon=True)
+                reader.start()
+
+                # Wait for process with deadline-based timeout
+                remaining = max(0, deadline - time.monotonic())
+                try:
+                    process.wait(timeout=remaining)
+                except subprocess.TimeoutExpired:
+                    timed_out = True
+                    logger.error(f"✗ Timeout generating BCC for: {binary_path} (limit: {self.config.timeout}s)")
+                    _force_kill_pid(_pgid)
+                    process.wait()  # reap the killed process
+
+                # Let the reader thread finish draining
+                reader.join(timeout=5)
 
                 # Close all progress bars
                 for pbar in progress_bars.values():
                     pbar.close()
 
-                process.wait(timeout=self.config.timeout)
+                if timed_out:
+                    return False
+
                 returncode = process.returncode
 
-            # Clean up any lingering child processes (decompiler)
-            try:
-                import signal
-                os.killpg(process.pid, signal.SIGTERM)
-            except (ProcessLookupError, OSError):
-                pass  # Process group already gone — normal case
+            finally:
+                # Clean up any lingering child processes (decompiler)
+                # Use SIGKILL — decompiler processes ignore SIGTERM
+                _force_kill_pid(_pgid)
+                _active_pgids.discard(_pgid)
 
             if verbose_mode:
                 logger.info("=" * 80)
@@ -487,16 +588,6 @@ class BCCGenerator:
                 logger.error(f"    Binary: {binary_path}")
                 logger.error("=" * 80)
                 return False
-
-        except subprocess.TimeoutExpired:
-            logger.error(f"✗ Timeout generating BCC for: {binary_path} (limit: {self.config.timeout}s)")
-            # Kill the entire process group (Ghidra JVM + decompiler children)
-            try:
-                import signal
-                os.killpg(process.pid, signal.SIGKILL)
-            except (ProcessLookupError, OSError):
-                pass
-            return False
         except Exception as e:
             logger.error(f"✗ Error generating BCC: {e}")
             return False
@@ -633,7 +724,7 @@ def generate_bcc_for_binary(
         Exception: For other configuration or generation errors
 
     Example:
-        >>> from utils.generate_bcc import generate_bcc_for_binary
+        >>> from blackfyre.utils.generate_bcc import generate_bcc_for_binary
         >>> from blackfyre.common import VerbosityLevel
         >>> # Pass output directory - Blackfyre generates ls.bcc automatically
         >>> success = generate_bcc_for_binary("/bin/ls", "./output")
@@ -687,7 +778,7 @@ def generate_bcc_for_directory(
         Exception: For other configuration or generation errors
 
     Example:
-        >>> from utils.generate_bcc import generate_bcc_for_directory
+        >>> from blackfyre.utils.generate_bcc import generate_bcc_for_directory
         >>> from blackfyre.common import VerbosityLevel
         >>> # Normal output with progress bars
         >>> results = generate_bcc_for_directory("/firmware/bin", "./bccs", parallel=4)
@@ -773,7 +864,7 @@ def generate_bcc_for_list(
         Exception: For other configuration or generation errors
 
     Example:
-        >>> from utils.generate_bcc import generate_bcc_for_list
+        >>> from blackfyre.utils.generate_bcc import generate_bcc_for_list
         >>> from blackfyre.common import VerbosityLevel
         >>> binaries = ["/bin/ls", "/bin/cat", "/bin/grep"]
         >>> results = generate_bcc_for_list(binaries, "./bccs", parallel=2, verbosity=VerbosityLevel.SILENT.value)
