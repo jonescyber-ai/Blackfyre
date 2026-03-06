@@ -392,6 +392,7 @@ class BCCGenerator:
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
+                start_new_session=True,
             ) as process:
                 # Show initial progress indicator only if show_progress is True
                 if show_progress:
@@ -448,6 +449,13 @@ class BCCGenerator:
                 process.wait(timeout=self.config.timeout)
                 returncode = process.returncode
 
+            # Clean up any lingering child processes (decompiler)
+            try:
+                import signal
+                os.killpg(process.pid, signal.SIGTERM)
+            except (ProcessLookupError, OSError):
+                pass  # Process group already gone — normal case
+
             if verbose_mode:
                 logger.info("=" * 80)
                 logger.info("End Ghidra Output")
@@ -482,6 +490,12 @@ class BCCGenerator:
 
         except subprocess.TimeoutExpired:
             logger.error(f"✗ Timeout generating BCC for: {binary_path} (limit: {self.config.timeout}s)")
+            # Kill the entire process group (Ghidra JVM + decompiler children)
+            try:
+                import signal
+                os.killpg(process.pid, signal.SIGKILL)
+            except (ProcessLookupError, OSError):
+                pass
             return False
         except Exception as e:
             logger.error(f"✗ Error generating BCC: {e}")
